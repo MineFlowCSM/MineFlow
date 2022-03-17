@@ -92,6 +92,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #ifndef MVD_INCLUDE_MINEFLOW_H
 #define MVD_INCLUDE_MINEFLOW_H
 
+#include <array>
+#include <sstream>
 #include <algorithm>
 #include <iterator>
 #include <memory>
