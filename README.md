@@ -21,15 +21,15 @@ Building Instructions
 
 On Linux without cmake:
 ```
-    g++ -std=c++1z -O3 -DMVD_MINEFLOW_EXE mineflow.cpp -o mineflow
-    ./mineflow
+g++ -std=c++1z -O3 -DMVD_MINEFLOW_EXE mineflow.cpp -o mineflow
+./mineflow
 ```
 
 On Linux with cmake:
 ```
-   mkdir build && cd build
-   cmake ..
-   make
+mkdir build && cd build
+cmake ..
+make
 ```
 
 On Windows with cmake.
@@ -136,8 +136,8 @@ MineFlow is available for *everyone* to use, learn from, and improve, without re
 If you use this code commercially carefully note the requirements in the license.
 
 
-Citation
---------
+Citation and Paper
+------------------
 
 If you use this code for your research, please cite our paper:
 
@@ -156,6 +156,12 @@ Deutsch, M., Dağdelen, K. & Johnson, T. "An Open-Source Program for Efficiently
   url={https://doi.org/10.1007/s11053-022-10035-w}
 }
 ```
+
+The paper is included in this repository: [deutsch2022mineflow.pdf](https://github.com/MineFlowCSM/MineFlow/blob/df0f30aabea494371704a926ba47f6166631774d/deutsch2022mineflow.pdf).
+However note that this is the Author's "Submitted Manuscript."
+This preprint has not undergone any post-submission improvements or corrections.
+The **Version of Record** of this article is published in **Natural Resources Research** and is available online at [https://doi.org/10.1007/s11053-022-10035-w](https://doi.org/10.1007/s11053-022-10035-w)
+
 
 Contact
 -------
