@@ -2,6 +2,7 @@ MineFlow
 ========
 
 An open source library and command line utility for calculating **ultimate pit limits** for open pit mining operations.
+A commercially supported version of this library with support for minimum mining width constraints is available at https://mineflowsoftware.com/.
 
 
 Introduction
@@ -171,7 +172,7 @@ Contact Matthew Deutsch by email:
 
 * matthewvdeutsch@gmail.com
 
-Consulting assistance, training, development, and additional support are available.
+Consulting assistance, training, development, and additional support are available from MineFlow Software: https://mineflowsoftware.com/ 
 
 
 Acknowledgements
