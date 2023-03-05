@@ -1068,7 +1068,7 @@ public:
 
     double MinSlope() const;
 
-    size_t NumPairs() const;
+    uint64_t NumPairs() const;
     const std::vector<AzmSlopePair>& Pairs() const;
     bool Empty() const;
 
@@ -1094,7 +1094,7 @@ struct PrecedencePattern
     using iterator = std::vector<Vector3IT>::iterator;
     using const_iterator = std::vector<Vector3IT>::const_iterator;
 
-    size_t size() const;
+    uint64_t size() const;
     iterator begin();
     iterator end();
     const_iterator begin() const;
