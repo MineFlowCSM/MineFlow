@@ -70,6 +70,5 @@ jobs:
         uses: ncipollo/release-action@v1
         with:
           commit: master
-          tag: ${{ github.run_number }}
           name: ${{ inputs.name }}
           artifacts: "mineflow-windows-x86_64/mineflow-windows-x86_64.zip"
