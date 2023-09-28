@@ -1,0 +1,70 @@
+name: mineflow-ci
+
+on:  
+  push:
+    tags:
+      - '*'
+
+jobs:
+  build_window_x64:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Actions Repository
+        uses: actions/checkout@v3
+        with:
+          submodules: "recursive"
+
+      - name: Add msbuild to PATH
+        uses: microsoft/setup-msbuild@v1.1
+
+      - name: Prepare build directory
+        run: |
+          mkdir $env:GITHUB_WORKSPACE/build
+          cd $env:GITHUB_WORKSPACE/build
+          cmake -A x64 ..
+
+      - name: Build app for release
+        run: |
+          cd $env:GITHUB_WORKSPACE/build
+          msbuild ALL_BUILD.vcxproj /p:Configuration=Release
+
+      - name: Zip binary
+        if: success()
+        run: |
+          mkdir $env:GITHUB_WORKSPACE/release
+          cd $env:GITHUB_WORKSPACE/release
+
+          cp $env:GITHUB_WORKSPACE/build/bin/Release/mineflow.exe .
+          cp $env:GITHUB_WORKSPACE/README.md .
+
+          Compress-Archive -Path ./* -DestinationPath $env:GITHUB_WORKSPACE/mineflow-windows-x86_64.zip
+
+      - name: Collect artifacts
+        if: success()
+        uses: actions/upload-artifact@v3
+        with:
+          name: mineflow-windows-x86_64
+          path: mineflow-windows-x86_64.zip
+
+  release:
+    needs:
+      - build_window_x64
+
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+
+      - name: Show directory structure
+        run: |
+          ls -R
+
+      - name: Upload artifacts
+        uses: ncipollo/release-action@v1
+        with:
+          commit: main
+          artifacts: "mineflow-windows-x86_64/mineflow-windows-x86_64.zip"
