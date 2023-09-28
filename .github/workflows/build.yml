@@ -1,12 +1,9 @@
 name: mineflow-ci
 
-on:
-  workflow_dispatch:
-    inputs:
-      name:
-        description: 'Release name like: v0.001'
-        required: true
-        type: string
+on:  
+  push:
+    tags:
+      - '*'
 
 jobs:
   build_window_x64:
@@ -70,5 +67,4 @@ jobs:
         uses: ncipollo/release-action@v1
         with:
           commit: master
-          name: ${{ inputs.name }}
           artifacts: "mineflow-windows-x86_64/mineflow-windows-x86_64.zip"
