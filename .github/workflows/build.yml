@@ -66,5 +66,5 @@ jobs:
       - name: Upload artifacts
         uses: ncipollo/release-action@v1
         with:
-          commit: master
+          commit: main
           artifacts: "mineflow-windows-x86_64/mineflow-windows-x86_64.zip"
