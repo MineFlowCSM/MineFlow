@@ -1,5 +1,6 @@
-%Run this first! (but only once) to create the .mex file in your project
-%mex COMPFLAGS='$COMPFLAGS /std:c++17 /I "..\"' "mineflowmex.cpp"
+% Run this first! (but only once) to create the .mex file in your project
+% Change the path to the mineflow directory as required.
+%mex COMPFLAGS='$COMPFLAGS /std:c++17 /IC:\repos\MineFlow\' "mineflowmex.cpp"
 
 % the data files are x fastest, then y, then z. So must transpose 2d data
 % files for matlab's column major ordering

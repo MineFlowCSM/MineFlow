@@ -16,7 +16,7 @@ class MexFunction : public matlab::mex::Function
 public:
     void operator()(matlab::mex::ArgumentList outputs, matlab::mex::ArgumentList inputs);
 
-    static void error(const std::string& message);
+    void error(const std::string& message);
 
 private:
     void validateArgumentsOrError(matlab::mex::ArgumentList outputs, matlab::mex::ArgumentList inputs);
@@ -30,7 +30,7 @@ private:
 };
 
 
-PrecedencePtr initializeScalarPrecedenceConstraints(const mvd::mineflow::BlockDefinition& bdef, double slopeRad)
+PrecedencePtr MexFunction::initializeScalarPrecedenceConstraints(const mvd::mineflow::BlockDefinition& bdef, double slopeRad)
 {
     mvd::mineflow::SlopeDefinition sdef = mvd::mineflow::SlopeDefinition::Constant(slopeRad);
 
@@ -45,7 +45,7 @@ PrecedencePtr initializeScalarPrecedenceConstraints(const mvd::mineflow::BlockDe
 void MexFunction::validateSlopeInputOrThrow(const mvd::mineflow::BlockDefinition& bdef, matlab::data::Array input)
 {
     auto& dim = input.getDimensions();
-    int ndim = dim.size();
+    size_t ndim = dim.size();
     bool twod = ndim == 2;
     if (ndim == 2) {
         if (bdef.NumX != dim[1]) {
@@ -78,7 +78,7 @@ PrecedencePtr MexFunction::initializeLocallyVaryingPrecedenceConstraints(const m
     std::unordered_map<int, mvd::mineflow::IndexType> inDegreesToPatternIndex;
 
     std::vector<mvd::mineflow::PrecedencePattern> patterns;
-    std::shared_ptr<std::vector<mvd::mineflow::IndexType>> patternIndices(bdef.NumBlocks());
+    auto patternIndices = std::make_shared<std::vector<mvd::mineflow::IndexType>>(bdef.NumBlocks());
 
     bool twod = input.getDimensions().size() == 2;
     for (int64_t z = 0; z < bdef.NumZ; z++) {
@@ -100,11 +100,12 @@ PrecedencePtr MexFunction::initializeLocallyVaryingPrecedenceConstraints(const m
                 }
 
                 int inDegrees = static_cast<int>(std::round(slopeDeg * 10));
-                mvd::IndexType patternIndex = -1;
+                mvd::mineflow::IndexType patternIndex = -1;
 
                 auto it = inDegreesToPatternIndex.find(inDegrees);
                 if (it == inDegreesToPatternIndex.end()) {
                     // create a new pattern
+                    double slopeRad = mvd::mineflow::ToRadians(slopeDeg);
                     mvd::mineflow::SlopeDefinition sdef = mvd::mineflow::SlopeDefinition::Constant(slopeRad);
 
                     patternIndex = static_cast<mvd::mineflow::IndexType>(patterns.size());
@@ -112,12 +113,14 @@ PrecedencePtr MexFunction::initializeLocallyVaryingPrecedenceConstraints(const m
 
                     inDegreesToPatternIndex[inDegrees] = patternIndex;
                 } else {
-                    patternIndex = *it;
+                    patternIndex = it->second;
                 }
-                assert(patternIndex >= 0 && patternIndex < patterns.size());
+                if(patternIndex < 0 || patternIndex >= static_cast<mvd::mineflow::IndexType>(patterns.size())) {
+                    throw std::runtime_error("error in implementation");
+                }
 
                 int64_t i = bdef.GridIndex(x, y, z);
-                patternIndices[i] = patternIndex;
+                patternIndices->at(i) = patternIndex;
             }
         }
     }
@@ -130,7 +133,7 @@ PrecedencePtr MexFunction::initializePrecedenceConstraints(const mvd::mineflow::
     if (input.getNumberOfElements() == 1) {
         return initializeScalarPrecedenceConstraints(bdef, mvd::mineflow::ToRadians(input[0]));
     } else {
-        error("not implemented yet");
+        return initializeLocallyVaryingPrecedenceConstraints(bdef, input);
     }
     return nullptr;
 }
@@ -141,7 +144,7 @@ void MexFunction::operator()(matlab::mex::ArgumentList outputs, matlab::mex::Arg
     validateArgumentsOrError(outputs, inputs);
     try {
         mvd::mineflow::BlockDefinition bdef = mvd::mineflow::BlockDefinition::UnitModel();
-        int ndim = inputs[0].getDimensions().size();
+        size_t ndim = inputs[0].getDimensions().size();
         bool twod = ndim == 2;
         if (ndim == 2) {
             bdef.NumX = inputs[0].getDimensions()[1];
@@ -222,28 +225,39 @@ void MexFunction::validateArgumentsOrError(matlab::mex::ArgumentList outputs, ma
     if (inputs.size() != 2) {
         error("Two inputs are required. The economic block values, and the slope information (in degrees)");
     }
-    if (inputs[1].getNumberOfElements() != 1) {
-        error("The slope argument must be a scalar.");
-    }
-    if (inputs[1].getType() != matlab::data::ArrayType::DOUBLE ||
-        inputs[1].getType() == matlab::data::ArrayType::COMPLEX_DOUBLE) {
-        error("The slope argument must be a noncomplex scalar double.");
-    }
 
-    int ndim = inputs[0].getDimensions().size();
-    if (ndim < 2 || ndim > 3) {
+    size_t ebvdim = inputs[0].getDimensions().size();
+    if (ebvdim < 2 || ebvdim > 3) {
         error("The economic block values must be a 2d or 3d matrix.");
     }
     if (inputs[0].getType() != matlab::data::ArrayType::INT64) {
         error("The economic block values must be provided as an int64 matrix.");
     }
 
-    double slope = inputs[1][0];
-    if (slope < 5) {
-        error("The input slope must be given in degrees and be greater than 5 degrees");
-    }
-    if (slope > 90) {
-        error("The input slope must be given in degrees and be less than 90 degrees");
+    if (inputs[1].getNumberOfElements() == 1) {
+        if (inputs[1].getType() != matlab::data::ArrayType::DOUBLE ||
+            inputs[1].getType() == matlab::data::ArrayType::COMPLEX_DOUBLE) {
+            error("The slope argument must be a noncomplex scalar double.");
+        }
+
+        double slope = inputs[1][0];
+        if (slope < 5) {
+            error("The input slope must be given in degrees and be greater than 5 degrees");
+        }
+        if (slope > 90) {
+            error("The input slope must be given in degrees and be less than 90 degrees");
+        }
+    } else {
+        size_t slopedim = inputs[1].getDimensions().size();
+        if (slopedim < 2 || slopedim > 3) {
+            error("The slope block values must be a 2d or 3d matrix.");
+        }
+
+        if (inputs[1].getType() != matlab::data::ArrayType::DOUBLE ||
+            inputs[1].getType() == matlab::data::ArrayType::COMPLEX_DOUBLE) {
+            error("The slope arguments must be noncomplex doubles.");
+        }
+
     }
 }
 
