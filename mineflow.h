@@ -1198,6 +1198,24 @@ private:
     std::tuple<IndexType, IndexType, IndexType> XYZ(IndexType k) const;
 };
 
+class Regular3DBlockModelKeyedPatternsPrecedence : public IPrecedenceConstraints
+{
+public:
+    Regular3DBlockModelKeyedPatternsPrecedence(const BlockDefinition& blockDef,
+            const std::vector<PrecedencePattern>& patterns,
+            std::shared_ptr<std::vector<IndexType>> patternIndices);
+    ~Regular3DBlockModelKeyedPatternsPrecedence();
+
+    IndexType NumBlocks() const override final;
+    BlockIndexInputIteratorBase Antecedents(IndexType fromBlockIndex) const override final;
+    BlockIndexInputIteratorBase Successors(IndexType toBlockIndex) const override final;
+    IndexType ApproxNumAntecedents(IndexType fromBlockIndex) const override final;
+
+private:
+    std::vector<Regular3DBlockModelPatternPrecedence> m_Patterns;
+    std::shared_ptr<std::vector<IndexType>> m_PatternIndices;
+};
+
 //
 class ExplicitPrecedence : public IPrecedenceConstraints
 {

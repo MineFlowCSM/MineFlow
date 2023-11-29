@@ -1937,6 +1937,49 @@ std::tuple<IndexType, IndexType, IndexType> Regular3DBlockModelPatternPrecedence
 
 ////////////////////////////////////////////////////////////////////////////////
 
+Regular3DBlockModelKeyedPatternsPrecedence::Regular3DBlockModelKeyedPatternsPrecedence(const BlockDefinition& blockDef,
+        const std::vector<PrecedencePattern>& patterns,
+        std::shared_ptr<std::vector<IndexType>> patternIndices)
+    : m_PatternIndices(patternIndices)
+{
+    if (patterns.empty()) {
+        throw std::invalid_argument("a non zero number of patterns are required");
+    }
+    if (patternIndices->size() != blockDef.NumBlocks()) {
+        throw std::invalid_argument("invalid pattern indices count");
+    }
+
+    m_Patterns.reserve(patterns.size());
+    for (size_t i = 0; i < patterns.size(); i++) {
+        m_Patterns.emplace_back(blockDef, patterns[i]);
+    }
+}
+Regular3DBlockModelKeyedPatternsPrecedence::~Regular3DBlockModelKeyedPatternsPrecedence()
+{
+}
+
+IndexType Regular3DBlockModelKeyedPatternsPrecedence::NumBlocks() const 
+{
+    return m_Patterns.front().NumBlocks();
+}
+
+BlockIndexInputIteratorBase Regular3DBlockModelKeyedPatternsPrecedence::Antecedents(IndexType fromBlockIndex) const 
+{
+    return m_Patterns.at(m_PatternIndices->at(fromBlockIndex)).Antecedents(fromBlockIndex);
+}
+
+BlockIndexInputIteratorBase Regular3DBlockModelKeyedPatternsPrecedence::Successors(IndexType toBlockIndex) const 
+{
+    return m_Patterns.at(m_PatternIndices->at(toBlockIndex)).Successors(toBlockIndex);
+}
+
+IndexType Regular3DBlockModelKeyedPatternsPrecedence::ApproxNumAntecedents(IndexType fromBlockIndex) const 
+{
+    return m_Patterns.at(m_PatternIndices->at(fromBlockIndex)).ApproxNumAntecedents(fromBlockIndex);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 class BlockVectorSource : public IBlockIndexInputIteratorSource
 {
 public:
