@@ -1421,15 +1421,18 @@ PrecedencePattern PrecedencePattern::MinSearch(
     double max_height = block_def.SizeZ * n;
     double max_throw = max_height / std::tan(min_slope);
 
-    IndexType cx = static_cast<IndexType>(std::ceil(max_throw));
+    // Throws are physical distances; grid extents are block counts per axis.
+    IndexType cx = static_cast<IndexType>(std::ceil(max_throw / block_def.SizeX));
+    IndexType cy = static_cast<IndexType>(std::ceil(max_throw / block_def.SizeY));
     IndexType nx = cx * 2 + 1;
+    IndexType ny = cy * 2 + 1;
     IndexType nz = n + 1;
 
-    IndexType total = nx * nx * nz;
+    IndexType total = nx * ny * nz;
 
     BlockDefinition flag_def = block_def;
     flag_def.NumX = nx;
-    flag_def.NumY = nx;
+    flag_def.NumY = ny;
     flag_def.NumZ = nz;
 
     const char NOT_FLAGGED = 0;
@@ -1438,19 +1441,20 @@ PrecedencePattern PrecedencePattern::MinSearch(
     std::vector<char> flag(total, NOT_FLAGGED);
 
     // Now construct the minimum search pattern,
-    IndexType origin_index = flag_def.GridIndex(cx, cx, 0);
+    IndexType origin_index = flag_def.GridIndex(cx, cy, 0);
     flag[origin_index] = NO_ARCS;
     std::vector<IndexType> flagged;
     flagged.push_back(origin_index);
     for (IndexType z = 1; z < nz; z++) {
         double this_height = z * flag_def.SizeZ;
         double this_throw = this_height / std::tan(min_slope);
-        IndexType this_max_off = static_cast<IndexType>(std::ceil(this_throw));
+        IndexType this_max_x = static_cast<IndexType>(std::ceil(this_throw / block_def.SizeX));
+        IndexType this_max_y = static_cast<IndexType>(std::ceil(this_throw / block_def.SizeY));
 
         // flag the violating blocks
         std::vector<Vector3IT> new_offsets;
-        for (IndexType x = -this_max_off; x <= this_max_off; x++) {
-            for (IndexType y = -this_max_off; y <= this_max_off; y++) {
+        for (IndexType x = -this_max_x; x <= this_max_x; x++) {
+            for (IndexType y = -this_max_y; y <= this_max_y; y++) {
                 IndexType fi = flag_def.OffsetIndex(origin_index, x, y, z);
 
                 if (flag[fi] == NOT_FLAGGED && slope_def.Within(x * flag_def.SizeX, 
@@ -1481,6 +1485,11 @@ PrecedencePattern PrecedencePattern::MinSearch(
             for (auto & arc : (*offsets)) {
                 if (fz + arc.z >= flag_def.NumZ) {
                     break;
+                }
+
+                // Reject horizontal overflow before converting to a linear index.
+                if (!flag_def.OffsetInDef(fi, arc.x, arc.y, arc.z)) {
+                    continue;
                 }
 
                 IndexType idx = flag_def.OffsetIndex(fi, arc.x, arc.y, arc.z);
@@ -1525,10 +1534,11 @@ void mvd::mineflow::NaiveSearch(const BlockDefinition& block_def,
     for (IndexType z = 1; z <= nz; z++) {
         double this_height = block_def.SizeZ * z;
         double this_throw = this_height / std::tan(min_slope);
-        IndexType this_max_off = static_cast<IndexType>(std::ceil(this_throw));
+        IndexType this_max_x = static_cast<IndexType>(std::ceil(this_throw / block_def.SizeX));
+        IndexType this_max_y = static_cast<IndexType>(std::ceil(this_throw / block_def.SizeY));
 
-        for (IndexType x = -this_max_off; x <= this_max_off; x++) {
-            for (IndexType y = -this_max_off; y <= this_max_off; y++) {
+        for (IndexType x = -this_max_x; x <= this_max_x; x++) {
+            for (IndexType y = -this_max_y; y <= this_max_y; y++) {
                 if (slope_def.Within(x * block_def.SizeX, 
                                      y * block_def.SizeY, 
                                      z * block_def.SizeZ)) {
@@ -3936,6 +3946,73 @@ TEST(Precedence, PatternMinSearch)
 {
     PrecedencePattern ptrn = PrecedencePattern::MinSearch(45_deg, 10);
     ASSERT_EQ(25, ptrn.size());
+}
+
+// Uniform changes of length units must preserve every precedence offset.
+TEST(Precedence, PatternScaleInvariant)
+{
+    for (const auto& sizes : std::vector<Vector3D>{{1, 1, 1}, {1, 2, 1}, {2, 1, 1}, {10, 10, 15}}) {
+        for (const auto& scenario : std::vector<std::pair<double, IndexType>>{{45_deg, 6}, {30_deg, 8}}) {
+            auto slope = SlopeDefinition::Constant(scenario.first);
+            BlockDefinition base(65, 65, scenario.second + 1, 0, 0, 0, sizes.x, sizes.y, sizes.z);
+            auto minimum = PrecedencePattern::MinSearch(base, slope, scenario.second);
+            auto naive = PrecedencePattern::Naive(base, slope, scenario.second);
+            auto less_naive = PrecedencePattern::LessNaive(base, slope, scenario.second);
+            if (sizes.x == 1 && sizes.y == 1) {
+                ASSERT_EQ(scenario.second == 6 ? 17 : 105, minimum.size());
+            }
+            PatternAccuracy expected;
+            MeasureAccuracy(base, slope, minimum, &expected);
+            for (double scale : {0.25, 0.1, 0.3, 0.4, 0.5, 0.6, 0.75, 2.0, 10.0}) {
+                BlockDefinition scaled = base;
+                scaled.SizeX *= scale;
+                scaled.SizeY *= scale;
+                scaled.SizeZ *= scale;
+                auto actual = PrecedencePattern::MinSearch(scaled, slope, scenario.second);
+                ASSERT_VEC_EQ(minimum.Offsets, actual.Offsets);
+                actual = PrecedencePattern::Naive(scaled, slope, scenario.second);
+                ASSERT_VEC_EQ(naive.Offsets, actual.Offsets);
+                actual = PrecedencePattern::LessNaive(scaled, slope, scenario.second);
+                ASSERT_VEC_EQ(less_naive.Offsets, actual.Offsets);
+                PatternAccuracy accuracy;
+                MeasureAccuracy(scaled, slope, minimum, &accuracy);
+                ASSERT_EQ(expected.true_positive, accuracy.true_positive);
+                ASSERT_EQ(expected.true_negative, accuracy.true_negative);
+                ASSERT_EQ(expected.false_positive, accuracy.false_positive);
+                ASSERT_EQ(expected.false_negative, accuracy.false_negative);
+            }
+        }
+    }
+}
+
+// Check the search against a deliberately oversized physical membership scan,
+// including both orientations of unequal horizontal block sizes.
+TEST(Precedence, PatternAnisotropicCoverage)
+{
+    auto slope = SlopeDefinition::Constant(45_deg);
+    for (const auto& sizes : std::vector<Vector3D>{{0.25, 0.5, 1}, {0.5, 0.25, 1}}) {
+        BlockDefinition blocks(65, 65, 7, 0, 0, 0, sizes.x, sizes.y, sizes.z);
+        std::vector<Vector3IT> expected;
+        for (IndexType z = 1; z <= 6; ++z) {
+            for (IndexType x = -32; x <= 32; ++x) {
+                for (IndexType y = -32; y <= 32; ++y) {
+                    if (slope.Within(x * sizes.x, y * sizes.y, z * sizes.z)) {
+                        expected.emplace_back(x, y, z);
+                    }
+                }
+            }
+        }
+        auto naive = PrecedencePattern::Naive(blocks, slope, 6);
+        ASSERT_VEC_EQ(expected, naive.Offsets);
+        for (const auto& pattern : {PrecedencePattern::MinSearch(blocks, slope, 6),
+                                   PrecedencePattern::LessNaive(blocks, slope, 6)}) {
+            PatternAccuracy accuracy;
+            MeasureAccuracy(blocks, slope, pattern, &accuracy);
+            ASSERT_EQ(expected.size(), accuracy.true_positive);
+            ASSERT_EQ(0, accuracy.false_positive);
+            ASSERT_EQ(0, accuracy.false_negative);
+        }
+    }
 }
 
 static IBlockValuesSPtr ValuesFromVec(const std::vector<int64_t>& vs)

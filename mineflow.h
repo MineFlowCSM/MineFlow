@@ -93,6 +93,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define MVD_INCLUDE_MINEFLOW_H
 
 #include <array>
+#include <functional>
+#include <unordered_map>
 #include <sstream>
 #include <algorithm>
 #include <iterator>
